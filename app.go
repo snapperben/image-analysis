@@ -135,7 +135,9 @@ type CalendarManager struct {
 	regionName string
 }
 
-// Calendar represents a region's calendar of significant dates
+// Calendar represents a region's calendar of significant dates like Easter, Thanksgiving
+// or local public holidays. The actual calendar used depends on factors such as a device's
+// home location and if it is abroad as part of a holiday.
 type Calendar struct {
 	regionName    string
 	calendarYear  int
@@ -152,17 +154,7 @@ type CalendarDate struct {
 
 /////////////////////////////////   Member functions
 
-// addImageToGallery adds an image to a gallery
-func (g *GalleryOfImages) addImageToGallery() (_dateMetadata []DateMetadata, _err error) {
-	_err = nil
-
-	// TODO Iterate through the calendars that represent the gallery and determine if the gallery covers
-	//		any significant dates
-
-	return
-}
-
-// getTimeOfDay returns the type of gallery for the title
+// getGalleryType returns the type of gallery for the title
 func (g GalleryOfImages) getGalleryType() string {
 	// TODO Analyse the gallery and determine if it covers a trip, holiday or a home event
 	return ""
@@ -176,16 +168,6 @@ func (g *GalleryOfImages) getSignificantDates() (_dateMetadata []DateMetadata, _
 	//		any significant dates
 
 	return
-}
-
-// readImageMetadata unmarshalls the image metadata from CSV files
-func readImageMetadata() {
-
-}
-
-// processImageLocations Goes through the images in a file/gallery
-func processImageLocations() {
-
 }
 
 func main() {
