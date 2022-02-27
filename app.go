@@ -1,16 +1,62 @@
 package image_analysis
 
-import "time"
+import (
+	"encoding/csv"
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
+	"time"
+)
 
 // GalleryOfImages represents a group of images and their metadata
 type GalleryOfImages struct {
-	imagesMataData map[uint64]ImageMetadata
-	mobileRegion   string
-	galleryRegion  string
-	timeOfYear     string
-	firstTime      time.Time
-	lastTime       time.Time
-	locations      []ImageLocation
+	imagesMataData   map[uint64]ImageMetadata
+	mobileHomeRegion string
+	galleryRegion    string
+	timeOfYear       string
+	headImage        *ImageMetadata
+	tailImage        *ImageMetadata
+	locations        []ImageLocation
+}
+
+func (g *GalleryOfImages) insertImageMetadata(_im *ImageMetadata) {
+	if g.headImage == nil {
+		g.headImage = _im
+	} else {
+		if _im.ImageTime.Before(g.headImage.ImageTime) {
+			_im.nextImage = g.headImage
+			g.headImage = _im
+		} else {
+			g.headImage.InsertImageMetadata(_im)
+		}
+	}
+}
+
+// ReadCSVGallery reads in a CSV fuile of image metadata into the gallery
+func (g *GalleryOfImages) ReadCSVGallery(_csvData string) error {
+	var galleryImageCounter int = 0
+	r := csv.NewReader(strings.NewReader(_csvData))
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		im, err := NewImageMetadata(galleryImageCounter, record)
+		if err != nil {
+			return err
+		}
+		g.insertImageMetadata(im)
+	}
+	return nil
+}
+
+func (g *GalleryOfImages) ProcessImages(_csvData string) {
+
 }
 
 // ImageLocation represents the location of an image
@@ -19,20 +65,59 @@ type ImageLocation struct {
 	state      string
 	county     string
 	townOrCity string
-	a
 }
 
 // ImageMetadata stores all the information about when and where an image was taken
 // and all the collected metadata that can be inferred from that data
 type ImageMetadata struct {
-	id           int
-	galleryIndex int
-	lat          float32
-	long         float32
-	imageTime    time.Time // This is the actual Golang time of the image
-	imageDate    uint64    // This id the UNIX timestamp at midday on the data of the image
-	prevImage    *ImageMetaData
-	nextImage    *ImageMetaData
+	Id            int
+	GalleryIndex  int
+	Lat           float64
+	Long          float64
+	ImageTime     time.Time // This is the actual Golang time of the image
+	prevImage     *ImageMetadata
+	nextImage     *ImageMetadata
+	imageLocation *ImageLocation
+}
+
+func (im *ImageMetadata) InsertImageMetadata(_im *ImageMetadata) {
+	if _im.ImageTime.Before(im.ImageTime) {
+		im.prevImage = _im
+		im.nextImage = im
+	} else {
+		if im.nextImage == nil {
+			im.nextImage = _im
+		} else {
+			im.nextImage.InsertImageMetadata(_im)
+		}
+	}
+}
+
+// NewImageMetadata is a utility function to construct an ImageMetadata object from []string{Date Lat Long}
+func NewImageMetadata(_imageId int, _metaData []string) (*ImageMetadata, error) {
+	if len(_metaData) != 3 {
+		return nil, fmt.Errorf("input data to NewImageMetaData invalid, not enough data : %v", _metaData)
+	}
+	im := new(ImageMetadata)
+	im.Id = _imageId
+	imageTime, err := time.Parse(`2019-12-01T03:45:000Z`, _metaData[0])
+	if err != nil {
+		return nil, fmt.Errorf("time invalid for image #%d: %s", _imageId, _metaData[0])
+	}
+	im.ImageTime = imageTime
+
+	coordinate, err := strconv.ParseFloat(_metaData[1], 32)
+	if err != nil {
+		return nil, fmt.Errorf("latitude invalid for image #%d: %s", _imageId, _metaData[1])
+	}
+	im.Lat = coordinate
+	coordinate, err = strconv.ParseFloat(_metaData[2], 32)
+	if err != nil {
+		return nil, fmt.Errorf("longitude invalid for image #%d: %s", _imageId, _metaData[1])
+	}
+	im.Long = coordinate
+
+	return im, nil
 }
 
 // DateMetadata is designed to describe the significance of the date of an image so that the
@@ -80,9 +165,10 @@ func (g *GalleryOfImages) addImageToGallery() (_dateMetadata []DateMetadata, _er
 // getTimeOfDay returns the type of gallery for the title
 func (g GalleryOfImages) getGalleryType() string {
 	// TODO Analyse the gallery and determine if it covers a trip, holiday or a home event
+	return ""
 }
 
-// overSignificantDates return metaData about significant dates the gallery covers
+// getSignificantDates return metaData about significant dates the gallery covers
 func (g *GalleryOfImages) getSignificantDates() (_dateMetadata []DateMetadata, _err error) {
 	_err = nil
 
